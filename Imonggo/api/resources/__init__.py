@@ -31,7 +31,7 @@ class ResourceAccessor(object):
             self._klass = getattr(mod, resource_name)
         except:
             self._klass = ResourceObject
-            
+         
         self._url = self.__resource_name.lower()
             
          
@@ -106,7 +106,16 @@ class ResourceAccessor(object):
         except:
             return None
     
+    def inquire(self, what, query={}):
+        _query = {}
+        if query:
+            _query = query.query_dict()
+        _query["q"] = what
+        
+        result = self._connection.get("%s.xml" % (self._url), _query)
+        return result.get(what)
     
+        
     def get_count(self, query={}):
         _query = {}
         if query:
@@ -270,4 +279,14 @@ class ResourceObject(object):
     def to_dict(self):
         return self._fields
     
-
+    
+    def inquire(self, what, query={}):
+        _query = {}
+        if query:
+            _query = query.query_dict()
+        _query["q"] = what
+        
+        result = self._connection.get("%s.xml" % (self._url), _query)
+        return result.get(what)
+    
+        

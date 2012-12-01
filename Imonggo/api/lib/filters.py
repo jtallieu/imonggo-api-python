@@ -74,11 +74,11 @@ class DateFilter(FilterBase):
     
     def set(self, value):
         if isinstance(value, (datetime, date)):
-            self.value = value.strftime("%a, %d %b %Y %H:%M:%S +0000")
+            self.value = value.strftime("%Y-%m-%d %H:%M:%S")
             
         elif isinstance(value, basestring):
             try:
-                self.value = datetime.strptime(value, DateFilter.format).strftime("%a, %d %b %Y %H:%M:%S +0000")
+                self.value = datetime.strptime(value, DateFilter.format).strftime("%Y-%m-%d %H:%M:%S")
             except:
                 raise AttributeError("Unable to use date value - check the format (use: %s)" % DateFilter.format)
     

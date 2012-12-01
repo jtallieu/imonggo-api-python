@@ -38,7 +38,6 @@ class DetailsToDict(ContentHandler):
         
         # An array type is being closed
         if last[3]:
-            last[1] = []
             
             if isinstance(value, list):
                 last[1] += value
@@ -63,7 +62,11 @@ class DetailsToDict(ContentHandler):
         if "type" in attrs.getNames():
             if attrs.getValue("type") == "array":
                 isarray = True
-        self.stack.append([name,{},"", isarray])
+                
+        if isarray:
+            self.stack.append([name,[],"", isarray])
+        else:
+            self.stack.append([name,{},"", isarray])
         
     def characters(self,content):
         last = self.stack[-1]
@@ -141,8 +144,6 @@ class Connection():
             parser = DetailsToDict()
             parseString(data, parser)
             return parser.data
-    
-            
             
         elif response.status == 204:
             raise EmptyResponseWarning("%d %s @ https://%s%s" % (response.status, response.reason, self.host, url))

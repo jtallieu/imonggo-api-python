@@ -3,13 +3,13 @@ from Imonggo.api.lib.filters import FilterSet, StringFilter, NumberFilter, DateF
 from . import ResourceObject
 
 
-class Documents(ResourceObject):
+class Products(ResourceObject):
     
     @classmethod
     def filter_set(cls):
         fs = FilterSet(before = DateFilter(),
                          after = DateFilter(),
-                         to = DateFilter(),
+                         to = DateFilter(), 
                          branch_id = NumberFilter(),
                          ) 
         fs["from"] = DateFilter()

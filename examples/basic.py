@@ -20,8 +20,47 @@ if __name__ == "__main__":
     api = ApiClient(STORE_HOST, STORE_TOKEN, STORE_USERID)
     
     
+    print api.Branches.get_count()
+    for branch in api.Branches.enumerate():
+        print branch.name, branch.id
+        
+        
+        limit=0
+        f = api.Invoices.filters()
+        f["from"].set(datetime.now() - timedelta(days=2))
+        if branch.name != "Head Office":
+            f.branch_id.set(branch.id)
+            limit=0
+        
+        
+        for invoice in api.Invoices.enumerate(limit=limit, query=f):
+            print invoice.id, invoice.amount
+        
+        """
+        pf = api.Products.filters()
+        if branch.name != "Head Office":
+            pf.branch_id.set(branch.id)
+            
+        print "Products"
+        for p in api.Products.enumerate(start=5, limit=20, query=pf):
+            qty = p.inquire("quantity",pf)
+            print "\t", p.id, p.name, qty
+        """ 
     
+        """
+        print "Documents"
+        df = api.Documents.filters()
+        df["from"].set(datetime.now() - timedelta(days=15))
+        if branch.name != "Head Office":
+            df.branch_id.set(branch.id)
     
+        print api.Documents.get_count(query=df)
+        for product in api.Documents.enumerate(limit=10, query=df):
+            print product.id
+        """ 
+        
+
+    """
     
     # List 10 products starting at offset 10
     for invoice in api.Invoices.enumerate():
@@ -31,7 +70,7 @@ if __name__ == "__main__":
         pass
     
     f = api.Documents.filters()
-    f["from"].set(datetime.now() - timedelta(3))
+    f["from"].set(datetime.now() - timedelta(15))
     
     print api.Documents.get_count(query=f)
     for product in api.Documents.enumerate(query=f):
@@ -39,11 +78,27 @@ if __name__ == "__main__":
         
     doc = api.Documents.get(product.id)
     
-    for product in api.Products.enumerate():
-        if product.stock_no == "4":
-            break
+    d = datetime.utcnow() - timedelta(days=20)
+    
+    print "Quantities Since", d
+    f = api.Products.filters()
+    f["from"].set(d)
+    
+    for product in api.Products.enumerate(query=f):
+        quantity = product.inquire("quantity")
+        print product.stock_no, product.name, quantity
         
-    print product.id, product.stock_no
+    
+    d = datetime.utcnow() - timedelta(minutes=20)
+    print "Invoices Since", d
+    f = api.Invoices.filters()
+    f["from"].set(d)
+    
+    for invoice in api.Invoices.enumerate(query=f):
+        print invoice.id, invoice.invoice_no, invoice.amount
+        for line in invoice.invoice_lines:
+            print "Line Items", line.product_id, line.price, line.quantity
+        pass
+    """
         
-    prod =  api.Products.get(product.id)
-    print prod.inquire("quantity")
+    

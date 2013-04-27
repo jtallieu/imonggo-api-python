@@ -4,6 +4,7 @@ Connection Module
 Handles put and get operations to the a REST API
 """
 import sys
+import time
 import urllib
 import logging
 import simplejson
@@ -129,36 +130,51 @@ class Connection():
         url = "%s%s%s" % (self.base_url, url, qs)
         log.debug("GET %s" % (url))
         
-        self.__connection.connect()
-        request = self.__connection.request("GET", url, None, self.__headers)
-        response = self.__connection.getresponse()
-        data = response.read()
-        self.__connection.close()
-        
-        log.debug("GET %s status %d" % (url,response.status))
+        retries = 1
+        last_code = 503
         result = {}
+        delay = 45
         
-        # Check the return status
-        if response.status == 200:
-            log.debug("%s" % data)
-            parser = DetailsToDict()
-            parseString(data, parser)
-            return parser.data
+        while retries < 4 and last_code == 503:
+            self.__connection.connect()
+            request = self.__connection.request("GET", url, None, self.__headers)
+            response = self.__connection.getresponse()
+            data = response.read()
+            self.__connection.close()
             
-        elif response.status == 204:
-            raise EmptyResponseWarning("%d %s @ https://%s%s" % (response.status, response.reason, self.host, url))
-        
-        elif response.status == 404:
-            log.debug("%s returned 404 status" % url)
-            raise HTTPException("%d %s @ https://%s%s" % (response.status, response.reason, self.host, url))
-        
-        elif response.status >= 400:
-            _result = simplejson.loads(data)
-            log.debug("OUTPUT %s" % _result)
-            raise HTTPException("%d %s @ https://%s%s" % (response.status, response.reason, self.host, url))
-        
+            log.debug("GET %s status %d" % (url,response.status))
+            log.debug('Response headers:')
+            log.debug(pformat(response.getheaders()))
+            result = {}
+            last_code = response.status
+            
+            # Check the return status
+            if response.status == 200:
+                log.debug("%s" % data)
+                parser = DetailsToDict()
+                parseString(data, parser)
+                return parser.data
+                
+            elif response.status == 204:
+                raise EmptyResponseWarning("%d %s @ https://%s%s" % (response.status, response.reason, self.host, url))
+            
+            elif response.status == 503:
+                # Wait a minute
+                log.critical("Max API call rate exceeded - waiting %ds [try %d]" % (retries * delay, retries))
+                time.sleep(retries * delay)
+                retries += 1
+                
+            elif response.status == 404:
+                log.debug("%s returned 404 status" % url)
+                raise HTTPException("%d %s @ https://%s%s" % (response.status, response.reason, self.host, url))
+            
+            elif response.status >= 400:
+                _result = simplejson.loads(data)
+                log.debug("OUTPUT %s" % _result)
+                raise HTTPException("%d %s @ https://%s%s" % (response.status, response.reason, self.host, url))
+            
         return result
-    
+        
     
     def get_url(self, resource_name):
         """

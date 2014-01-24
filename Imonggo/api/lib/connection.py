@@ -133,9 +133,9 @@ class Connection():
         retries = 1
         last_code = 503
         result = {}
-        delay = 45
+        delay = 90
         
-        while retries < 4 and last_code == 503:
+        while retries < 5 and last_code == 503:
             self.__connection.connect()
             request = self.__connection.request("GET", url, None, self.__headers)
             response = self.__connection.getresponse()

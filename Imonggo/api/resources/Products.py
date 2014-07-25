@@ -4,6 +4,7 @@ from . import ResourceObject
 
 
 class Products(ResourceObject):
+    resource_name = "product"
     
     @classmethod
     def filter_set(cls):

@@ -4,6 +4,7 @@ from . import ResourceObject
 
 
 class Invoices(ResourceObject):
+    resource_name = "invoice"
     
     @classmethod
     def filter_set(cls):

@@ -4,6 +4,7 @@ from . import ResourceObject
 
 
 class Documents(ResourceObject):
+    resource_name = "document"
     
     @classmethod
     def filter_set(cls):

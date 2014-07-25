@@ -106,6 +106,15 @@ class ResourceAccessor(object):
         except:
             return None
     
+    def create(self, properties, opts={}):
+        try:
+            result = self._connection.create(self._url, properties, name=self._klass.resource_name)
+            return self._klass(self._connection, self._url, result, self._parent)
+        except:
+            log.exception("Error creating")
+            return None
+        pass
+    
     def inquire(self, what, query={}):
         _query = {}
         if query:
@@ -162,6 +171,7 @@ class ResourceObject(object):
     sub_resources = {}  # list of properties that are subresources
     can_create = False  # If create is supported
     can_update = False
+    resource_name = "generic"
     
     def __init__(self, connection, url, fields, parent):
         #  Very important!! These two lines must be first to support 
@@ -268,9 +278,10 @@ class ResourceObject(object):
             log.info("Updating %s" % self.get_url())
             log.debug("Data: %s" % self._updates)
             
-            results = self._connection.update(self.get_url(), self._updates)
-            self._updates.clear()
-            self._fields = results
+            results = self._connection.update(self.get_url(), self._updates, self.resource_name)
+            if results:
+                self._fields.update(self._updates)
+                self._updates.clear()
                      
         
     def __repr__(self):

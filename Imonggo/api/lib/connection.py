@@ -8,19 +8,71 @@ import time
 import urllib
 import logging
 import simplejson
+from datetime import datetime
 from urlparse import urlparse
 from pprint import pprint, pformat
+from StringIO import StringIO
 from httplib import HTTPSConnection, HTTPException
 
 from xml.sax import parse, parseString
 from xml.sax.handler import ContentHandler
 from xml.sax import SAXParseException
+
+import xml.etree.cElementTree as ET
  
 log = logging.getLogger("Imonggo.con")
 
 class EmptyResponseWarning(HTTPException):
     pass
 
+class DictToXML(object):
+    
+    def __init__(self, date_format="%Y-%m-%dT%H:%M:%sZ"):
+        self.date_fmt = date_format
+    
+    def get_node(self, name, data):
+        node = ET.Element(name)
+        if isinstance(data, (basestring, int, float)):
+            node.text = str(data)
+            return node
+        
+        if isinstance(data, datetime):
+            node.text = data.strftime(self.date_fmt)
+            return node
+        
+        elif isinstance(data, list):
+            node.set("type", "array")
+            _name = name[0:-1]
+            for o in data:
+                _node = self.get_node(_name, o)
+                node.append(_node)
+                
+        elif isinstance(data, dict):
+            for key, value in data.items():
+                node.append(self.get_node(key,value))
+                
+        return node
+    
+    
+    def toxml(self, root_name = "", properties={}):
+        root = ET.Element(root_name)
+        for key, value in properties.items():
+            n = self.get_node(key, value)
+            root.append(n)
+        return root
+    
+    
+def toXML(rootname, properties):
+    transformer = DictToXML()
+    root = transformer.toxml(rootname, properties)
+    buf = StringIO()
+    ET.ElementTree(root).write(buf, xml_declaration=False)
+    x = buf.getvalue()
+    buf.close()
+    return x
+    
+    
+    
 
 class DetailsToDict(ContentHandler):
     def __init__(self):
@@ -104,7 +156,7 @@ class Connection():
         log.info("API Host: %s/%s" % (self.host, self.base_url))
         log.debug("Accepting json, auth: Basic %s" % self.auth)
         self.__headers = {"Authorization": "Basic %s" % self.auth,
-                        "Accept": "application/json"}
+                        "Accept": "application/xml"}
         
         self.__resource_meta = {}
         self.__connection = HTTPSConnection(self.host)
@@ -189,17 +241,20 @@ class Connection():
         return self.__resource_meta.get(resource_name,{}).get("resource", None)
         
         
-    def update(self, url, updates):
+    def update(self, url, updates, resource_name=""):
         """
         Make a PUT request to save updates
         """
-        url = "%s%s" % (self.base_url, url)
+        url = "%s%s.xml" % (self.base_url, url)
         log.debug("PUT %s" % (url))
         self.__connection.connect()
         
-        put_headers = {"Content-Type": "application/json"}
+        put_headers = {"Content-Type": "application/xml"}
         put_headers.update(self.__headers)
-        request = self.__connection.request("PUT", url, simplejson.dumps(updates), put_headers)
+        log.debug("Call headers %s" % pformat(put_headers))
+        payload = toXML(resource_name, updates)
+        log.debug("Updating %s -> %s" % (resource_name, payload))
+        request = self.__connection.request("PUT", url, payload, put_headers)
         response = self.__connection.getresponse()
         data = response.read()
         self.__connection.close()
@@ -209,7 +264,7 @@ class Connection():
         
         result = {}
         if response.status == 200:
-            result = simplejson.loads(data)
+            result = True
         
         elif response.status == 204:
             raise EmptyResponseWarning("%d %s @ https://%s%s" % (response.status, response.reason, self.host, url))
@@ -225,6 +280,46 @@ class Connection():
         
         return result
     
+    
+    def create(self, url, properties, name=""):
+        resource_name = url if not name else name
+        url = "%s%s.xml" % (self.base_url, url)
+        log.debug("POST %s" % (url))
+        log.debug("Creating %s" % pformat(properties))
+        self.__connection.connect()
+        
+        put_headers = {"Content-Type": "application/xml"}
+        put_headers.update(self.__headers)
+        
+        payload = toXML(resource_name, properties)
+        log.debug("Creating %s -> %s" % (resource_name, payload))
+        request = self.__connection.request("POST", url, payload, put_headers)
+        response = self.__connection.getresponse()
+        data = response.read()
+        self.__connection.close()
+        
+        log.debug("POST %s status %d" % (url,response.status))
+        log.debug("OUTPUT: %s" % data)
+        
+        result = {}
+        if response.status == 201:
+            parser = DetailsToDict()
+            parseString(data, parser)
+            return parser.data
+        
+        elif response.status == 204:
+            raise EmptyResponseWarning("%d %s @ https://%s%s" % (response.status, response.reason, self.host, url))
+        
+        elif response.status == 404:
+            log.debug("%s returned 404 status" % url)
+            raise HTTPException("%d %s @ https://%s%s" % (response.status, response.reason, self.host, url))
+        
+        elif response.status >= 400:
+            _result = simplejson.loads(data)
+            log.debug("OUTPUT %s" % _result)
+            raise HTTPException("%d %s @ https://%s%s" % (response.status, response.reason, self.host, url))
+        
+            
     
     def __repr__(self):
         return "Connection %s" % (self.host)
